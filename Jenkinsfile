@@ -10,14 +10,14 @@ pipeline {
         stage('Test Wearable Service') {
             steps {
                 dir('wearable-service') {
-                    sh 'python -m pytest'
+                    sh 'python3 -m pytest'
                 }
             }
         }
         stage('Test Cosmetics Service') {
             steps {
                 dir('cosmetics-service') {
-                    sh 'python -m pytest'
+                    sh 'python3 -m pytest'
                 }
             }
         }    
