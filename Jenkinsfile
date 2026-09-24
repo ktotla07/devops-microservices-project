@@ -25,6 +25,12 @@ pipeline {
                     '''
                 }
             }
-        }    
+        }
+        stage('Build Docker Images') {
+            steps {
+                sh 'docker build -t wearable-service:ci ./wearable-service'
+                sh 'docker build -t cosmetics-service:ci ./cosmetics-service'
+            }
+        }
     }
 }
