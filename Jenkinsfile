@@ -18,7 +18,8 @@ pipeline {
             steps {
                 dir('cosmetics-service') {
                     sh 'python -m pytest'
+                }
             }
-        }
+        }    
     }
 }
