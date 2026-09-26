@@ -38,7 +38,6 @@ pipeline {
                 ]) {
                     sh '''
                         set -e
-
                         export AWS_DEFAULT_REGION=ap-south-1
 
                         echo "Testing AWS authentication..."
@@ -70,7 +69,6 @@ pipeline {
                 ]) {
                     sh '''
                         set -e
-
                         export AWS_DEFAULT_REGION=ap-south-1
 
                         echo "Checking AWS identity..."
@@ -118,56 +116,74 @@ pipeline {
                 '''
             }
         }
+
         stage('Deploy to EKS') {
             steps {
                 withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-ecr']
+                    usernamePassword(
+                        credentialsId: 'aws-ecr',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
                 ]) {
                     sh '''
-                    set -e
+                        set -e
+                        export AWS_DEFAULT_REGION=ap-south-1
 
-                    export AWS_DEFAULT_REGION=ap-south-1
+                        echo "Updating kubeconfig..."
 
-                    echo "Updating kubeconfig..."
-                    aws eks update-kubeconfig \
-                        --region ap-south-1 \
-                        --name devops-microservices-cluster
+                        aws eks update-kubeconfig \
+                            --region ap-south-1 \
+                            --name devops-microservices-cluster
 
-                    echo "Checking Kubernetes connection..."
-                    kubectl get nodes
+                        echo "Checking Kubernetes connection..."
+                        kubectl get nodes
 
-                    echo "Applying Kubernetes manifests..."
-                    kubectl apply -f k8s/namespace.yaml
-                    kubectl apply -f k8s/wearable-deployment.yaml
-                    kubectl apply -f k8s/wearable-service.yaml
-                    kubectl apply -f k8s/cosmetics-deployment.yaml
-                    kubectl apply -f k8s/cosmetics-service.yaml
+                        echo "Applying Kubernetes manifests..."
 
-                    echo "Checking deployments..."
-                    kubectl get deployments -n microservices
+                        kubectl apply -f k8s/namespace.yaml
+                        kubectl apply -f k8s/wearable-deployment.yaml
+                        kubectl apply -f k8s/wearable-service.yaml
+                        kubectl apply -f k8s/cosmetics-deployment.yaml
+                        kubectl apply -f k8s/cosmetics-service.yaml
 
-                    echo "Checking pods..."
-                    kubectl get pods -n microservices
+                        echo "Checking deployments..."
+                        kubectl get deployments -n microservices
+
+                        echo "Checking pods..."
+                        kubectl get pods -n microservices
                     '''
                 }
             }
         }
+
         stage('Verify Kubernetes Deployment') {
             steps {
                 withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-ecr']
+                    usernamePassword(
+                        credentialsId: 'aws-ecr',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
                 ]) {
                     sh '''
                         set -e
-
                         export AWS_DEFAULT_REGION=ap-south-1
+
+                        echo "Refreshing kubeconfig..."
+
+                        aws eks update-kubeconfig \
+                            --region ap-south-1 \
+                            --name devops-microservices-cluster
+
+                        echo "Waiting for wearable-service..."
 
                         kubectl rollout status \
                             deployment/wearable-service \
                             -n microservices \
                             --timeout=120s
+
+                        echo "Waiting for cosmetics-service..."
 
                         kubectl rollout status \
                             deployment/cosmetics-service \
@@ -176,11 +192,14 @@ pipeline {
 
                         echo "Kubernetes deployment successful."
 
+                        echo "Pods:"
                         kubectl get pods -n microservices
+
+                        echo "Services:"
                         kubectl get svc -n microservices
                     '''
                 }
             }
-        }        
+        }
     }
 }
