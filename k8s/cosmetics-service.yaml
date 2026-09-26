@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cosmetics-service
+  namespace: microservices
+spec:
+  selector:
+    app: cosmetics-service
+  ports:
+    - protocol: TCP
+      port: 5001
+      targetPort: 5001
+  type: LoadBalancer

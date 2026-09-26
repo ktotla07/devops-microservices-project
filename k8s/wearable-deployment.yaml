@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wearable-service
+  namespace: microservices
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: wearable-service
+  template:
+    metadata:
+      labels:
+        app: wearable-service
+    spec:
+      containers:
+        - name: wearable-service
+          image: 438456517868.dkr.ecr.ap-south-1.amazonaws.com/wearable-service:latest
+          ports:
+            - containerPort: 5000

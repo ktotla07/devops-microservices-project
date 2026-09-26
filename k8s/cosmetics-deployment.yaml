@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cosmetics-deployment
+  namespace: microservices
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cosmetics-service
+  template:
+    metadata:
+      labels:
+        app: cosmetics-service
+    spec:
+      containers:
+        - name: cosmetics-service
+          image: 438456517868.dkr.ecr.ap-south-1.amazonaws.com/cosmetics-service:latest
+          ports:
+            - containerPort: 5001

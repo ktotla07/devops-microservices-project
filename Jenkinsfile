@@ -118,5 +118,69 @@ pipeline {
                 '''
             }
         }
+        stage('Deploy to EKS') {
+            steps {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-ecr']
+                ]) {
+                    sh '''
+                    set -e
+
+                    export AWS_DEFAULT_REGION=ap-south-1
+
+                    echo "Updating kubeconfig..."
+                    aws eks update-kubeconfig \
+                        --region ap-south-1 \
+                        --name devops-microservices-cluster
+
+                    echo "Checking Kubernetes connection..."
+                    kubectl get nodes
+
+                    echo "Applying Kubernetes manifests..."
+                    kubectl apply -f k8s/namespace.yaml
+                    kubectl apply -f k8s/wearable-deployment.yaml
+                    kubectl apply -f k8s/wearable-service.yaml
+                    kubectl apply -f k8s/cosmetics-deployment.yaml
+                    kubectl apply -f k8s/cosmetics-service.yaml
+
+                    echo "Checking deployments..."
+                    kubectl get deployments -n microservices
+
+                    echo "Checking pods..."
+                    kubectl get pods -n microservices
+                    '''
+                }
+            }
+        }
+        stage('Verify Kubernetes Deployment') {
+            steps {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-ecr']
+                ]) {
+                    sh '''
+                        set -e
+
+                        export AWS_DEFAULT_REGION=ap-south-1
+
+                        kubectl rollout status \
+                            deployment/wearable-service \
+                            -n microservices \
+                            --timeout=120s
+
+                        kubectl rollout status \
+                            deployment/cosmetics-service \
+                            -n microservices \
+                            --timeout=120s
+
+                        echo "Kubernetes deployment successful."
+
+                        kubectl get pods -n microservices
+                        kubectl get svc -n microservices
+                    '''
+                }
+            }
+        }        
     }
 }
