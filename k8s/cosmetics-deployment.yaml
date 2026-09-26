@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cosmetics-deployment
+  name: cosmetics-service
   namespace: microservices
 spec:
   replicas: 2
