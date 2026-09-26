@@ -26,6 +26,20 @@ pipeline {
                 }
             }
         }
+        stage('Test AWS Authentication') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'aws-ecr',
+                    usernameVariable: 'AWS_ACCESS_KEY_ID',
+                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                )]) {
+                    sh '''
+                    export AWS_DEFAULT_REGION=ap-south-1
+                    aws sts get-caller-identity
+                    '''
+                }
+            }
+        }
         stage('Build Docker Images') {
             steps {
                 sh 'docker build -t wearable-service:ci ./wearable-service'
