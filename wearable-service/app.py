@@ -17,7 +17,7 @@ def products():
         {
             "id": 1,
             "name": "Smart Watch",
-            "price": 4999
+            "price": 7999
         },
         {
             "id": 2,
