@@ -117,89 +117,174 @@ pipeline {
             }
         }
 
-        stage('Deploy to EKS') {
+        stage('Promote Images to SIT') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo "Pulling latest images from ECR..."
+
+                    docker pull \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/wearable-service:latest
+
+                    docker pull \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/cosmetics-service:latest
+
+                    echo "Promoting images to SIT..."
+
+                    docker tag \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/wearable-service:latest \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/wearable-service:sit-${BUILD_NUMBER}
+
+                    docker tag \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/cosmetics-service:latest \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/cosmetics-service:sit-${BUILD_NUMBER}
+
+                    echo "Pushing SIT images..."
+
+                    docker push \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/wearable-service:sit-${BUILD_NUMBER}
+
+                    docker push \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/cosmetics-service:sit-${BUILD_NUMBER}
+
+                    echo "SIT image promotion completed."
+                '''
+            }
+        }
+
+        stage('Update GitOps Repository') {
             steps {
                 withCredentials([
                     usernamePassword(
-                        credentialsId: 'aws-ecr',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                        credentialsId: 'github-gitops',
+                        usernameVariable: 'GITHUB_USERNAME',
+                        passwordVariable: 'GITHUB_TOKEN'
                     )
                 ]) {
                     sh '''
                         set -e
-                        export AWS_DEFAULT_REGION=ap-south-1
 
-                        echo "Updating kubeconfig..."
+                        echo "Cloning GitOps repository..."
 
-                        aws eks update-kubeconfig \
-                            --region ap-south-1 \
-                            --name devops-microservices-cluster
+                        rm -rf gitops
 
-                        echo "Checking Kubernetes connection..."
-                        kubectl get nodes
+                        git clone \
+                            https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com/ktotla07/devops-microservices-gitops.git \
+                            gitops
 
-                        echo "Applying Kubernetes manifests..."
+                        cd gitops
 
-                        kubectl apply -f k8s/namespace.yaml
-                        kubectl apply -f k8s/wearable-deployment.yaml
-                        kubectl apply -f k8s/wearable-service.yaml
-                        kubectl apply -f k8s/cosmetics-deployment.yaml
-                        kubectl apply -f k8s/cosmetics-service.yaml
+                        echo "Updating SIT manifests..."
 
-                        echo "Checking deployments..."
-                        kubectl get deployments -n microservices
+                        sed -i "s|wearable-service:sit.*|wearable-service:sit-${BUILD_NUMBER}|g" \
+                            k8s/sit/wearable-deployment.yaml
 
-                        echo "Checking pods..."
-                        kubectl get pods -n microservices
+                        sed -i "s|cosmetics-service:sit.*|cosmetics-service:sit-${BUILD_NUMBER}|g" \
+                            k8s/sit/cosmetics-deployment.yaml
+
+                        echo "Updated images:"
+
+                        grep "image:" k8s/sit/*.yaml
+
+                        git config user.name "Jenkins"
+                        git config user.email "jenkins@localhost"
+
+                        git add k8s/sit/
+
+                        git commit -m "Promote images to SIT build ${BUILD_NUMBER}"
+
+                        git push origin main
+
+                        echo "GitOps repository updated successfully."
                     '''
                 }
             }
         }
 
-        stage('Verify Kubernetes Deployment') {
-            steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'aws-ecr',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
-                ]) {
-                    sh '''
-                        set -e
-                        export AWS_DEFAULT_REGION=ap-south-1
+        // stage('Deploy to EKS') {
+        //     steps {
+        //         withCredentials([
+        //             usernamePassword(
+        //                 credentialsId: 'aws-ecr',
+        //                 usernameVariable: 'AWS_ACCESS_KEY_ID',
+        //                 passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+        //             )
+        //         ]) {
+        //             sh '''
+        //                 set -e
+        //                 export AWS_DEFAULT_REGION=ap-south-1
 
-                        echo "Refreshing kubeconfig..."
+        //                 echo "Updating kubeconfig..."
 
-                        aws eks update-kubeconfig \
-                            --region ap-south-1 \
-                            --name devops-microservices-cluster
+        //                 aws eks update-kubeconfig \
+        //                     --region ap-south-1 \
+        //                     --name devops-microservices-cluster
 
-                        echo "Waiting for wearable-service..."
+        //                 echo "Checking Kubernetes connection..."
+        //                 kubectl get nodes
 
-                        kubectl rollout status \
-                            deployment/wearable-service \
-                            -n microservices \
-                            --timeout=120s
+        //                 echo "Applying Kubernetes manifests..."
 
-                        echo "Waiting for cosmetics-service..."
+        //                 kubectl apply -f k8s/namespace.yaml
+        //                 kubectl apply -f k8s/wearable-deployment.yaml
+        //                 kubectl apply -f k8s/wearable-service.yaml
+        //                 kubectl apply -f k8s/cosmetics-deployment.yaml
+        //                 kubectl apply -f k8s/cosmetics-service.yaml
 
-                        kubectl rollout status \
-                            deployment/cosmetics-service \
-                            -n microservices \
-                            --timeout=120s
+        //                 echo "Checking deployments..."
+        //                 kubectl get deployments -n microservices
 
-                        echo "Kubernetes deployment successful."
+        //                 echo "Checking pods..."
+        //                 kubectl get pods -n microservices
+        //             '''
+        //         }
+        //     }
+        // }
 
-                        echo "Pods:"
-                        kubectl get pods -n microservices
+        // stage('Verify Kubernetes Deployment') {
+        //     steps {
+        //         withCredentials([
+        //             usernamePassword(
+        //                 credentialsId: 'aws-ecr',
+        //                 usernameVariable: 'AWS_ACCESS_KEY_ID',
+        //                 passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+        //             )
+        //         ]) {
+        //             sh '''
+        //                 set -e
+        //                 export AWS_DEFAULT_REGION=ap-south-1
 
-                        echo "Services:"
-                        kubectl get svc -n microservices
-                    '''
-                }
-            }
-        }
+        //                 echo "Refreshing kubeconfig..."
+
+        //                 aws eks update-kubeconfig \
+        //                     --region ap-south-1 \
+        //                     --name devops-microservices-cluster
+
+        //                 echo "Waiting for wearable-service..."
+
+        //                 kubectl rollout status \
+        //                     deployment/wearable-service \
+        //                     -n microservices \
+        //                     --timeout=120s
+
+        //                 echo "Waiting for cosmetics-service..."
+
+        //                 kubectl rollout status \
+        //                     deployment/cosmetics-service \
+        //                     -n microservices \
+        //                     --timeout=120s
+
+        //                 echo "Kubernetes deployment successful."
+
+        //                 echo "Pods:"
+        //                 kubectl get pods -n microservices
+
+        //                 echo "Services:"
+        //                 kubectl get svc -n microservices
+        //             '''
+        //         }
+        //     }
+        // }
     }
 }
