@@ -22,7 +22,7 @@ def products():
         {
             "id": 2,
             "name": "Fitness Tracker",
-            "price": 2999
+            "price": 3999
         }
     ])
 
