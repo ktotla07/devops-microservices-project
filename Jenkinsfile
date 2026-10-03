@@ -52,8 +52,8 @@ pipeline {
                 sh '''
                     set -e
 
-                    docker build -t wearable-service:ci ./wearable-service
-                    docker build -t cosmetics-service:ci ./cosmetics-service
+                    docker build -t wearable-service:build-${BUILD_NUMBER} ./wearable-service
+                    docker build -t cosmetics-service:build-${BUILD_NUMBER} ./cosmetics-service
                 '''
             }
         }
@@ -92,11 +92,11 @@ pipeline {
                 sh '''
                     set -e
 
-                    docker tag wearable-service:ci \
-                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/wearable-service:latest
+                    docker tag wearable-service:build-${BUILD_NUMBER} \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/wearable-service:build-${BUILD_NUMBER}
 
-                    docker tag cosmetics-service:ci \
-                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/cosmetics-service:latest
+                    docker tag cosmetics-service:build-${BUILD_NUMBER} \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/cosmetics-service:build-${BUILD_NUMBER}
                 '''
             }
         }
@@ -108,11 +108,11 @@ pipeline {
 
                     echo "Pushing wearable-service..."
                     docker push \
-                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/wearable-service:latest
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/wearable-service:build-${BUILD_NUMBER}
 
                     echo "Pushing cosmetics-service..."
                     docker push \
-                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/cosmetics-service:latest
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/cosmetics-service:build-${BUILD_NUMBER}
                 '''
             }
         }
@@ -125,19 +125,19 @@ pipeline {
                     echo "Pulling latest images from ECR..."
 
                     docker pull \
-                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/wearable-service:latest
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/wearable-service:build-${BUILD_NUMBER}
 
                     docker pull \
-                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/cosmetics-service:latest
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/cosmetics-service:build-${BUILD_NUMBER}
 
-                    echo "Promoting images to SIT..."
+                    echo "Promoting build-${BUILD_NUMBER} images to SIT..."
 
                     docker tag \
-                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/wearable-service:latest \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/wearable-service:build-${BUILD_NUMBER} \
                         438456517868.dkr.ecr.ap-south-1.amazonaws.com/wearable-service:sit-${BUILD_NUMBER}
 
                     docker tag \
-                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/cosmetics-service:latest \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/cosmetics-service:build-${BUILD_NUMBER} \
                         438456517868.dkr.ecr.ap-south-1.amazonaws.com/cosmetics-service:sit-${BUILD_NUMBER}
 
                     echo "Pushing SIT images..."
