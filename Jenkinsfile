@@ -254,6 +254,46 @@ pipeline {
                 }
             }
         }
+        stage('SIT Application Smoke Tests') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo "Testing wearable-service /health..."
+                    curl --fail --silent --show-error \
+                        http://aec8171fac5e8498eb041da799fa8a73-1548847571.ap-south-1.elb.amazonaws.com:5000/health
+
+                    echo ""
+                    echo "Wearable health check passed."
+
+                    echo "Testing wearable-service /products..."
+                    curl --fail --silent --show-error \
+                        http://aec8171fac5e8498eb041da799fa8a73-1548847571.ap-south-1.elb.amazonaws.com:5000/products
+
+                    echo ""
+                    echo "Wearable products check passed."
+
+                    echo "Testing cosmetics-service /health..."
+                    curl --fail --silent --show-error \
+                        http://a73025bb98add4957a18e70ff8032dfb-1066287607.ap-south-1.elb.amazonaws.com:5001/health
+
+                    echo ""
+                    echo "Cosmetics health check passed."
+
+                    echo "Testing cosmetics-service /products..."
+                    curl --fail --silent --show-error \
+                        http://a73025bb98add4957a18e70ff8032dfb-1066287607.ap-south-1.elb.amazonaws.com:5001/products
+
+                    echo ""
+                    echo "Cosmetics products check passed."
+
+                    echo ""
+                    echo "========================================="
+                    echo "SIT APPLICATION SMOKE TESTS PASSED"
+                    echo "========================================="
+                '''
+            }
+        }
         // stage('Deploy to EKS') {
         //     steps {
         //         withCredentials([
