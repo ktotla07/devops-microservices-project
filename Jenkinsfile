@@ -201,7 +201,59 @@ pipeline {
                 }
             }
         }
+        stage('Validate SIT Deployment') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-ecr',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    sh '''
+                        set -e
+                        export AWS_DEFAULT_REGION=ap-south-1
 
+                        echo "Updating kubeconfig..."
+
+                        aws eks update-kubeconfig \
+                            --region ap-south-1 \
+                            --name devops-microservices-cluster
+
+                        echo "Checking wearable-service rollout..."
+
+                        kubectl rollout status \
+                            deployment/wearable-service \
+                            -n microservices-sit \
+                            --timeout=180s
+
+                        echo "Checking cosmetics-service rollout..."
+
+                        kubectl rollout status \
+                            deployment/cosmetics-service \
+                            -n microservices-sit \
+                            --timeout=180s
+
+                        echo "Checking deployment status..."
+
+                        kubectl get deployments \
+                            -n microservices-sit
+
+                        echo "Checking pod status..."
+
+                        kubectl get pods \
+                            -n microservices-sit
+
+                        echo "Checking services..."
+
+                        kubectl get svc \
+                            -n microservices-sit
+
+                        echo "SIT Kubernetes validation successful."
+                    '''
+                }
+            }
+        }
         // stage('Deploy to EKS') {
         //     steps {
         //         withCredentials([
