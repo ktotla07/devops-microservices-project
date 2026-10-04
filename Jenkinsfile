@@ -294,6 +294,88 @@ pipeline {
                 '''
             }
         }
+        stage('Promote Images to UAT') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo "Pulling latest images from ECR..."
+
+                    docker pull \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/wearable-service:sit-${BUILD_NUMBER}
+
+                    docker pull \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/cosmetics-service:sit-${BUILD_NUMBER}
+
+                    echo "Promoting SIT images to UAT..."
+
+                    docker tag \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/wearable-service:sit-${BUILD_NUMBER} \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/wearable-service:uat-${BUILD_NUMBER}
+
+                    docker tag \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/cosmetics-service:sit-${BUILD_NUMBER} \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/cosmetics-service:uat-${BUILD_NUMBER}
+
+                    echo "Pushing UAT images..."
+
+                    docker push \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/wearable-service:uat-${BUILD_NUMBER}
+
+                    docker push \
+                        438456517868.dkr.ecr.ap-south-1.amazonaws.com/cosmetics-service:uat-${BUILD_NUMBER}
+
+                    echo "UAT image promotion completed."
+                '''
+            }
+        }
+        stage('Update GitOps Repository for UAT') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'github-gitops',
+                        usernameVariable: 'GITHUB_USERNAME',
+                        passwordVariable: 'GITHUB_TOKEN'
+                    )
+                ]) {
+                    sh '''
+                        set -e
+
+                        echo "Cloning GitOps repository..."
+
+                        rm -rf gitops
+
+                        git clone \
+                            https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com/ktotla07/devops-microservices-gitops.git \
+                            gitops
+                        cd gitops
+
+                        echo "Updating UAT manifests..."
+
+                        sed -i "s|wearable-service:uat.*|wearable-service:uat-${BUILD_NUMBER}|g" \
+                            k8s/uat/wearable-deployment.yaml
+
+                        sed -i "s|cosmetics-service:uat.*|cosmetics-service:uat-${BUILD_NUMBER}|g" \
+                            k8s/uat/cosmetics-deployment.yaml
+
+                        echo "Updated images:"
+
+                        grep "image:" k8s/uat/*.yaml
+
+                        git config user.name "Jenkins" 
+                        git config user.email "jenkins@localhost"
+
+                        git add k8s/uat/
+
+                        git commit -m "Promote images to UAT build ${BUILD_NUMBER}"
+
+                        git push origin main
+
+                        echo "GitOps repository updated successfully."
+                    '''
+                }
+            }
+        }
         // stage('Deploy to EKS') {
         //     steps {
         //         withCredentials([
