@@ -376,6 +376,99 @@ pipeline {
                 }
             }
         }
+        stage('Validate UAT Deployment') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-ecr',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    sh '''
+                        set -e
+                        export AWS_DEFAULT_REGION=ap-south-1
+
+                        echo "Updating kubeconfig..."
+
+                        aws eks update-kubeconfig \
+                            --region ap-south-1 \
+                            --name devops-microservices-cluster
+
+                        echo "Checking wearable-service rollout..."
+
+                        kubectl rollout status \
+                            deployment/wearable-service \
+                            -n microservices-uat \
+                            --timeout=180s
+
+                        echo "Checking cosmetics-service rollout..."
+
+                        kubectl rollout status \
+                            deployment/cosmetics-service \
+                            -n microservices-uat \
+                            --timeout=180s
+
+                        echo "Checking deployment status..."
+
+                        kubectl get deployments \
+                            -n microservices-uat
+
+                        echo "Checking pod status..."
+
+                        kubectl get pods \
+                            -n microservices-uat
+
+                        echo "Checking services..."
+
+                        kubectl get svc \
+                            -n microservices-uat
+
+                        echo "UAT Kubernetes validation successful."
+                    '''
+                }
+            }
+        }
+        stage('UAT Application Smoke Tests') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo "Testing wearable-service /health..."
+                    curl --fail --silent --show-error \
+                        http://ae4864224404a4342ad68f2fc43af491-218372667.ap-south-1.elb.amazonaws.com:5000/health
+
+                    echo ""
+                    echo "Wearable health check passed."
+
+                    echo "Testing wearable-service /products..."
+                    curl --fail --silent --show-error \
+                        http://ae4864224404a4342ad68f2fc43af491-218372667.ap-south-1.elb.amazonaws.com:5000/products
+
+                    echo ""
+                    echo "Wearable products check passed."
+
+                    echo "Testing cosmetics-service /health..."
+                    curl --fail --silent --show-error \
+                        http://a7b7aff945e1b4c7795e31254e1c6c43-1270181144.ap-south-1.elb.amazonaws.com:5001/health
+
+                    echo ""
+                    echo "Cosmetics health check passed."
+
+                    echo "Testing cosmetics-service /products..."
+                    curl --fail --silent --show-error \
+                        http://a7b7aff945e1b4c7795e31254e1c6c43-1270181144.ap-south-1.elb.amazonaws.com:5001/products
+
+                    echo ""
+                    echo "Cosmetics products check passed."
+
+                    echo ""
+                    echo "========================================="
+                    echo "UAT APPLICATION SMOKE TESTS PASSED"
+                    echo "========================================="
+                '''
+            }
+        }
         // stage('Deploy to EKS') {
         //     steps {
         //         withCredentials([
